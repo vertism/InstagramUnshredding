@@ -11,6 +11,7 @@ class Unshredder < Object
     @strips = []
     @sortedStrips = []
     @compareNo = 0
+    @stripWidth = 32
     
     if !FileTest.exists?(@file)
       puts 'File does not exist'
@@ -31,56 +32,25 @@ class Unshredder < Object
   end
   
   #greatest common factor
-  def gcf(*args)
-    allFactors = []
-    args.each do |num|
-      factors = []
-      factor = 2
-      while factor <= num/2
-        if num % factor == 0
-          factors << factor
-        end
-        factor++
-      end
-      allFactors << factors
-    end
-    
-    result = allFactors.inject {|x, y| x & y }
-  end
-  
-  def getStripWidth()
-    img = Magick::Image::read(@file).first
-    diffs = []
-    xPos = 0
-    @imageWidth = img.columns
-    
-    lastLine = img.crop(xPos, 0, 1, @imageHeight, true)
-    
-    while xPos < @imageWidth
-      currentLine = img.crop(xPos, 0, 1, @imageHeight, true)
-      diffs << difference(lastLine, currentLine)
-      
-      lastLine = currentLine
-      xPos++
-    end
-    
-    sortedDiffs = diffs.sort { |a,b| b <=> a }
-    top10Threshold = sortedDiffs[sortedDiffs/10]
-    
-    largestDiffIndexes = []
-    diffs.each_by_index do |diff, index|
-      if diff <= top10Threshold
-        largestDiffIndexes << index
-      end
-    end
-    
-    
-    
-  end
+  # def gcf(*args)
+  #   allFactors = []
+  #   args.each do |num|
+  #     factors = []
+  #     factor = 2
+  #     while factor <= num/2
+  #       if num % factor == 0
+  #         factors << factor
+  #       end
+  #       factor++
+  #     end
+  #     allFactors << factors
+  #   end
+  #   
+  #   result = allFactors.inject {|x, y| x & y }
+  # end
 
   def getStrips()
-    getStripWidth()
-    
+    # getStripWidth()
     img = Magick::Image::read(@file).first
     
     xPos = 0
@@ -89,47 +59,13 @@ class Unshredder < Object
     @imageHeight = img.rows
     @imageWidth = img.columns
     
-    currentWidth = 0
-    lastLine = img.crop(xPos, 0, 1, @imageHeight, true)
-    lastDiff = 0
-    xPos += 1
-    
     while xPos < @imageWidth
-      currentLine = img.crop(xPos, 0, 1, @imageHeight, true)
-      currentDiff = difference(lastLine, currentLine)
-      currentWidth += 1
-      
-      newSection = false
-      
-      if xPos + 1 == @imageWidth
-        newSection = true
-        currentWidth += 1
-      elsif currentDiff > 0.06
-        newSection = true
-      elsif currentDiff > (lastDiff * 2.5)
-        newSection = true
-      elsif currentDiff > (lastDiff * 1.5) && currentDiff > 0.04
-        nextLine = img.crop(xPos + 1, 0, 1, @imageHeight, true)
-        nextDiff = difference(currentLine, nextLine)
-        if nextDiff < 0.02
-          newSection = true
-        end
-      end
-      
-      if newSection  
-        puts '**************'
-        puts currentWidth
-        croppedImage = img.crop(xPos - currentWidth, 0, currentWidth, @imageHeight, true)
-        left = croppedImage.crop(0, 0, 1, @imageHeight, true)
-        right = croppedImage.crop(currentWidth - 1, 0, 1, @imageHeight, true)
-        @strips.push({:id => id, :image => croppedImage, :left => left, :right => right})
-        id += 1
-        currentWidth = 0
-      end
-      xPos += 1
-      puts currentDiff * 10
-      lastLine = currentLine
-      lastDiff = currentDiff
+      croppedImage = img.crop(xPos, 0, @stripWidth, @imageHeight, true)
+      left = croppedImage.crop(0, 0, 1, @imageHeight, true)
+      right = croppedImage.crop(@stripWidth - 1, 0, 1, @imageHeight, true)
+      @strips.push({:id => id, :image => croppedImage, :left => left, :right => right})
+      xPos += @stripWidth
+      id += 1
     end
   end  
   
@@ -209,7 +145,6 @@ class Unshredder < Object
     end
     ext = File.extname @file
     outputFile = "#{File.dirname(@file)}/#{File.basename(@file, ext)}_unshredded#{ext}"
-    il.append false
-    il.write outputFile
+    il.append(false).write(outputFile)
   end
 end
