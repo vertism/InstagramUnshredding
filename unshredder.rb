@@ -6,145 +6,124 @@ require 'RMagick'
 
 class Unshredder < Object
 
-  def initialize(file)
+  def initialize(file, strip_width)
     @file = file
     @strips = []
-    @sortedStrips = []
-    @compareNo = 0
-    @stripWidth = 32
+    @sorted_strips = []
+    @compare_no = 1
+
     
     if !FileTest.exists?(@file)
       puts 'File does not exist'
       return
     end
     
-    getStrips()
-    
-    2.times do |comp|
-      if @sortedStrips.count == @strips.count
-        break
-      end
-      @compareNo = comp
-      startSort()
-    end
-      
-    outputImage()
+    get_strips()
+    sort_strips()
+    puts "output"
+    output_image()
   end
-  
-  #greatest common factor
-  # def gcf(*args)
-  #   allFactors = []
-  #   args.each do |num|
-  #     factors = []
-  #     factor = 2
-  #     while factor <= num/2
-  #       if num % factor == 0
-  #         factors << factor
-  #       end
-  #       factor++
-  #     end
-  #     allFactors << factors
-  #   end
-  #   
-  #   result = allFactors.inject {|x, y| x & y }
-  # end
 
-  def getStrips()
-    # getStripWidth()
+  def get_strips()
     img = Magick::Image::read(@file).first
     
-    xPos = 0
+    x_pos = 0
     id = 0
     
-    @imageHeight = img.rows
-    @imageWidth = img.columns
+    @image_height = img.rows
+    @image_width = img.columns
     
-    while xPos < @imageWidth
-      croppedImage = img.crop(xPos, 0, @stripWidth, @imageHeight, true)
-      left = croppedImage.crop(0, 0, 1, @imageHeight, true)
-      right = croppedImage.crop(@stripWidth - 1, 0, 1, @imageHeight, true)
-      @strips.push({:id => id, :image => croppedImage, :left => left, :right => right})
-      xPos += @stripWidth
+    while x_pos < @image_width
+      cropped_image = img.crop(x_pos, 0, @strip_width, @image_height, true)
+      left = cropped_image.crop(0, 0, 1, @image_height, true)
+      right = cropped_image.crop(@strip_width - 1, 0, 1, @image_height, true)
+      @strips.push({:id => id, :image => cropped_image, :left => left, :right => right})
+      x_pos += @strip_width
       id += 1
     end
   end  
   
-  def difference(a, b)
-    difference = a.difference(b)
-    difference[1]
+  def sort_strips()   
+    strip = find_first()
+    @sorted_strips = sort([strip], :right)
   end
   
-  def startSort()    
+  def find_first()
+    worst_strip = nil
+    worst_difference = 0
+    
     @strips.each do |strip|
-      sortedStrips = sort([strip], :right)
-      if sortedStrips.count > @sortedStrips.count
-        @sortedStrips = sortedStrips
-      end
-      if @sortedStrips.count == @strips.count
-        return
+      @strips.each do |compare|
+        difference = strip[:left].difference(compare[:right])[@compare_no]
+        if difference > worst_difference
+          worst_difference = difference
+          worst_strip = strip
+        end
       end
     end
+    
+    worst_strip
   end
   
-  def sort(sortedStrips, direction)    
-    if sortedStrips.count == @strips.count
-      return sortedStrips
+  def sort(sorted_strips, direction)    
+    if sorted_strips.count == @strips.count
+      return sorted_strips
     end
   
     if direction == :left
       opposite = :right
-      currentStrip = sortedStrips.first
+      current_strip = sorted_strips.first
     else
       opposite = :left
-      currentStrip = sortedStrips.last
+      current_strip = sorted_strips.last
     end
     
-    nextStrip = getNext(currentStrip, direction)
-    if getNext(nextStrip, opposite) == currentStrip
+    next_strip = get_next(current_strip, direction)
+    if get_next(next_strip, opposite) == current_strip
       if direction == :right
-        sortedStrips.push(nextStrip)
+        sorted_strips.push(next_strip)
       else
-        sortedStrips.unshift(nextStrip)
+        sorted_strips.unshift(next_strip)
       end
-      sort(sortedStrips, direction)
+      sort(sorted_strips, direction)
     else
       if direction == :left
-        return sortedStrips
+        return sorted_strips
       else
-        sort(sortedStrips, :left)
+        sort(sorted_strips, :left)
       end
     end
   end
   
-  def getNext(strip, direction)
-    minDiff = 1000000
+  def get_next(strip, direction)
+    min_diff = 1000000
     closest = nil
     @strips.each do |compare|
       if compare[:id] != strip[:id]
         if direction == :left
-          difference = strip[:left].difference(compare[:right])
+          difference = strip[:left].difference(compare[:right])[@compare_no]
         else
-          difference = strip[:right].difference(compare[:left])
+          difference = strip[:right].difference(compare[:left])[@compare_no]
         end
         
-        if difference[@compareNo] < minDiff
-          minDiff = difference[@compareNo]
+        if difference < min_diff
+          min_diff = difference
           closest = compare
         end
       end
     end
     closest
   end
-  
-  def outputImage
+
+  def output_image
     il = Magick::ImageList.new
-    puts @sortedStrips.size
-    @sortedStrips.each do |strip|
+    puts @sorted_strips.size
+    @sorted_strips.each do |strip|
       puts strip[:id]
       il.push(strip[:image])
     end
     ext = File.extname @file
-    outputFile = "#{File.dirname(@file)}/#{File.basename(@file, ext)}_unshredded#{ext}"
-    il.append(false).write(outputFile)
+    output_file = "#{File.dirname(@file)}/#{File.basename(@file, ext)}_unshredded#{ext}"
+    il.append(false).write(output_file)
   end
 end
