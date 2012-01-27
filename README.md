@@ -3,7 +3,9 @@ It was written in response to this [Instagram Challenge](http://instagram-engine
 
 The script takes 2 parameters: the file location, and the width of the shredded strips.
 
-```ruby main.rb Images/tokyo.jpg 32```
+```
+ruby main.rb Images/tokyo.jpg 32
+```
 
 N.B. All strips must be the same width
 
